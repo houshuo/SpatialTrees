@@ -16,9 +16,10 @@ namespace DH2.Algorithm
     // A tree of rigid bodies
     public struct BVHTree : IDisposable, ICloneable
     {
-        public NativeArray<BoundingVolumeHierarchy.Node> Nodes; // The nodes of the bounding volume
-        public NativeArray<CollisionFilter> NodeFilters;        // The collision filter for each node (a union of all its children)
-        public NativeArray<BoundingVolumeHierarchy.Builder.Range> Ranges;
+        private NativeArray<BoundingVolumeHierarchy.Node> Nodes; // The nodes of the bounding volume
+        private NativeArray<CollisionFilter> NodeFilters;        // The collision filter for each node (a union of all its children)
+        private BoundingVolumeHierarchy BoundingVolumeHierarchy;
+        
         private int m_BodyCount;
         public int BodyCount
         {
@@ -26,12 +27,10 @@ namespace DH2.Algorithm
             set { m_BodyCount = value; NodeCount = value + BoundingVolumeHierarchy.Constants.MaxNumTreeBranches; }
         }
 
-        public BoundingVolumeHierarchy BoundingVolumeHierarchy => new BoundingVolumeHierarchy(Nodes, NodeFilters);
-
-        public int NodeCount
+        private int NodeCount
         {
             get => Nodes.Length;
-            private set
+            set
             {
                 if (value > Nodes.Length)
                 {
@@ -39,6 +38,7 @@ namespace DH2.Algorithm
                     Nodes = new NativeArray<BoundingVolumeHierarchy.Node>(value, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                     NodeFilters.Dispose();
                     NodeFilters = new NativeArray<CollisionFilter>(value, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                    BoundingVolumeHierarchy = new BoundingVolumeHierarchy(Nodes, NodeFilters);
                 }
             }
         }
@@ -59,11 +59,9 @@ namespace DH2.Algorithm
                 [0] = CollisionFilter.Default,
                 [1] = CollisionFilter.Default
             };
-            Ranges = new NativeArray<BoundingVolumeHierarchy.Builder.Range>(
-                BoundingVolumeHierarchy.Constants.MaxNumTreeBranches, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
 
             m_BranchCount = new NativeArray<int>(1, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-            BodyCount = 0;
+            m_BodyCount = 0;
         }
 
         public object Clone()
@@ -73,11 +71,9 @@ namespace DH2.Algorithm
             clone.Nodes.CopyFrom(Nodes);
             clone.NodeFilters = new NativeArray<CollisionFilter>(NodeFilters.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             clone.NodeFilters.CopyFrom(NodeFilters);
-            clone.Ranges = new NativeArray<BoundingVolumeHierarchy.Builder.Range>(Ranges.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-            clone.Ranges.CopyFrom(Ranges);
             clone.m_BranchCount = new NativeArray<int>(1, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             clone.BranchCount = BranchCount;
-            clone.BodyCount = BodyCount;
+            clone.m_BodyCount = BodyCount;
             return clone;
         }
 
@@ -93,11 +89,6 @@ namespace DH2.Algorithm
                 NodeFilters.Dispose();
             }
 
-            if (Ranges.IsCreated)
-            {
-                Ranges.Dispose();
-            }
-
             if (m_BranchCount.IsCreated)
             {
                 m_BranchCount.Dispose();
@@ -106,7 +97,7 @@ namespace DH2.Algorithm
 
         public JobHandle ScheduleBuildTree(NativeArray<PositionExtend> treeNodes, JobHandle deps = new JobHandle())
         {
-            NodeCount = treeNodes.Length;
+            BodyCount = treeNodes.Length;
             NativeArray<BoundingVolumeHierarchy.PointAndIndex> pointAndIndex = new NativeArray<BoundingVolumeHierarchy.PointAndIndex>(BodyCount, Allocator.TempJob);
             NativeArray<Aabb> aabbs = new NativeArray<Aabb>(BodyCount, Allocator.TempJob);
             for (int i = 0; i < BodyCount; i++)
@@ -119,8 +110,8 @@ namespace DH2.Algorithm
                 //NodeFilters[i] = filter;
                 NodeFilters[i] = CollisionFilter.Default;
             }
-
-            return BoundingVolumeHierarchy.ScheduleBuildJobs(pointAndIndex, aabbs, NodeFilters, 8, deps, NodeCount, Ranges, m_BranchCount);
+            
+            return BoundingVolumeHierarchy.ScheduleBuildJobs(pointAndIndex, aabbs, NodeFilters, 8, deps, NodeCount, m_BranchCount);
         }
 
         #region AABB overlap query

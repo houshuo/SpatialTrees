@@ -488,12 +488,14 @@ namespace DH2.Algorithm
 
         public unsafe JobHandle ScheduleBuildJobs(
             NativeArray<PointAndIndex> points, NativeArray<Aabb> aabbs, NativeArray<CollisionFilter> bodyFilters, /*NativeArray<int> shouldDoWork,*/
-            int numThreadsHint, JobHandle inputDeps, int numNodes, NativeArray<Builder.Range> ranges, NativeArray<int> numBranches)
+            int numThreadsHint, JobHandle inputDeps, int numNodes, NativeArray<int> numBranches)
         {
             JobHandle handle = inputDeps;
 
             var branchNodeOffsets = new NativeArray<int>(Constants.MaxNumTreeBranches, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
             int oldNumBranches = numBranches[0];
+
+            NativeArray<Builder.Range> ranges = new NativeArray<Builder.Range>(Constants.MaxNumTreeBranches, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
             // Build initial branches
             handle = new BuildFirstNLevelsJob
@@ -863,7 +865,7 @@ namespace DH2.Algorithm
         {
             [ReadOnly] public NativeArray<Aabb> Aabbs;
             [ReadOnly] public NativeArray<CollisionFilter> BodyFilters;
-            [ReadOnly] public NativeArray<Builder.Range> Ranges;
+            [ReadOnly] [DeallocateOnJobCompletion] public NativeArray<Builder.Range> Ranges;
             [ReadOnly] public NativeArray<int> BranchNodeOffsets;
             [ReadOnly] public NativeArray<int> BranchCount;
 
