@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Unity.Burst;
+using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -10,9 +11,81 @@ using static DH2.Algorithm.Math;
 
 namespace DH2.Algorithm
 {
-    // Utilities for building bounding volume hierarchies
+    // A 4-way bounding volume hierarchy
     public partial struct BoundingVolumeHierarchy
     {
+        private readonly unsafe Node* m_Nodes;
+        private readonly unsafe CollisionFilter* m_NodeFilters;
+
+        public unsafe Aabb Domain => m_Nodes[1].Bounds.GetCompoundAabb();
+
+        public unsafe BoundingVolumeHierarchy(Node* nodes, CollisionFilter* nodeFilters)
+        {
+            m_Nodes = nodes;
+            m_NodeFilters = nodeFilters;
+        }
+
+        public unsafe BoundingVolumeHierarchy(NativeArray<Node> nodes, NativeArray<CollisionFilter> nodeFilters)
+        {
+            m_Nodes = (Node*)nodes.GetUnsafeReadOnlyPtr();
+            m_NodeFilters = (CollisionFilter*)nodeFilters.GetUnsafeReadOnlyPtr();
+        }
+
+        public unsafe BoundingVolumeHierarchy(NativeArray<Node> nodes)
+        {
+            m_Nodes = (Node*)nodes.GetUnsafeReadOnlyPtr();
+            m_NodeFilters = null;
+        }
+
+        // A node in the hierarchy
+        [StructLayout(LayoutKind.Sequential, Size = 128)]
+        public struct Node
+        {
+            public FourTransposedAabbs Bounds;
+            public int4 Data;
+            public int Flags;
+
+            public static Node Empty => new Node
+            {
+                Bounds = FourTransposedAabbs.Empty,
+                Data = int4.zero,
+                IsLeaf = false
+            };
+
+            public bool IsInternal { get => Flags == 0; set => Flags = value ? 0 : 1; }
+            public bool IsLeaf { get => Flags != 0; set => Flags = value ? 1 : 0; }
+
+            public bool4 AreLeavesValid => (Data != new int4(-1));
+            public bool4 AreInternalsValid => (Data != int4.zero);
+
+            public bool IsChildValid(int index)
+            {
+                if (IsLeaf && Data[index] == -1) return false;
+                if (!IsLeaf && Data[index] == 0) return false;
+                return true;
+            }
+
+            public int NumValidChildren()
+            {
+                int cnt = 0;
+                for (int i = 0; i < 4; i++)
+                {
+                    cnt += IsChildValid(i) ? 1 : 0;
+                }
+
+                return cnt;
+            }
+
+            public bool IsLeafValid(int index) => Data[index] != -1;
+            public bool IsInternalValid(int index) => Data[index] != 0;
+
+            public void ClearLeafData(int index) => Data[index] = -1;
+            public void ClearInternalData(int index) => Data[index] = 0;
+        }
+
+        // Utility function
+        private static void Swap<T>(ref T a, ref T b) where T : struct { T t = a; a = b; b = t; }
+
         public struct Constants
         {
             public const int MaxNumTreeBranches = 64;

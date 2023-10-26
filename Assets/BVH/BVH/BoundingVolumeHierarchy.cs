@@ -1,87 +1,127 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+﻿using System;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using Unity.Jobs;
 
 namespace DH2.Algorithm
 {
-    // A 4-way bounding volume hierarchy
-    public partial struct BoundingVolumeHierarchy
+    public struct PositionExtend
     {
-        private readonly unsafe Node* m_Nodes;
-        private readonly unsafe CollisionFilter* m_NodeFilters;
+        public float3 Position;
+        public float3 Extend;
+        //public CollisionFilter Filter;
+    }
 
-        public unsafe Aabb Domain => m_Nodes[1].Bounds.GetCompoundAabb();
-
-        public unsafe BoundingVolumeHierarchy(Node* nodes, CollisionFilter* nodeFilters)
+    // A tree of rigid bodies
+    public struct BVHTree : IDisposable, ICloneable
+    {
+        public NativeArray<BoundingVolumeHierarchy.Node> Nodes; // The nodes of the bounding volume
+        public NativeArray<CollisionFilter> NodeFilters;        // The collision filter for each node (a union of all its children)
+        public NativeArray<BoundingVolumeHierarchy.Builder.Range> Ranges;
+        private int m_BodyCount;
+        public int BodyCount
         {
-            m_Nodes = nodes;
-            m_NodeFilters = nodeFilters;
+            get { return m_BodyCount; }
+            set { m_BodyCount = value; NodeCount = value + BoundingVolumeHierarchy.Constants.MaxNumTreeBranches; }
         }
 
-        public unsafe BoundingVolumeHierarchy(NativeArray<Node> nodes, NativeArray<CollisionFilter> nodeFilters)
+        public BoundingVolumeHierarchy BoundingVolumeHierarchy => new BoundingVolumeHierarchy(Nodes, NodeFilters);
+
+        public int NodeCount
         {
-            m_Nodes = (Node*)nodes.GetUnsafeReadOnlyPtr();
-            m_NodeFilters = (CollisionFilter*)nodeFilters.GetUnsafeReadOnlyPtr();
-        }
-
-        public unsafe BoundingVolumeHierarchy(NativeArray<Node> nodes)
-        {
-            m_Nodes = (Node*)nodes.GetUnsafeReadOnlyPtr();
-            m_NodeFilters = null;
-        }
-
-        // A node in the hierarchy
-        [DebuggerDisplay("{IsLeaf?\"Leaf\":\"Internal\"}, [ {Data[0]}, {Data[1]}, {Data[2]}, {Data[3]} ]")]
-        [StructLayout(LayoutKind.Sequential, Size = 128)]
-        public struct Node
-        {
-            public FourTransposedAabbs Bounds;
-            public int4 Data;
-            public int Flags;
-
-            public static Node Empty => new Node
+            get => Nodes.Length;
+            private set
             {
-                Bounds = FourTransposedAabbs.Empty,
-                Data = int4.zero,
-                IsLeaf = false
-            };
-
-            public bool IsInternal { get => Flags == 0; set => Flags = value ? 0 : 1; }
-            public bool IsLeaf { get => Flags != 0; set => Flags = value ? 1 : 0; }
-            
-            public bool4 AreLeavesValid => (Data != new int4(-1));
-            public bool4 AreInternalsValid => (Data != int4.zero);
-
-            public bool IsChildValid(int index)
-            {
-                if (IsLeaf && Data[index] == -1) return false;
-                if (!IsLeaf && Data[index] == 0) return false;
-                return true;
-            }
-
-            public int NumValidChildren()
-            {
-                int cnt = 0;
-                for (int i = 0; i < 4; i++)
+                if (value > Nodes.Length)
                 {
-                    cnt += IsChildValid(i) ? 1 : 0;
+                    Nodes.Dispose();
+                    Nodes = new NativeArray<BoundingVolumeHierarchy.Node>(value, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                    NodeFilters.Dispose();
+                    NodeFilters = new NativeArray<CollisionFilter>(value, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
                 }
-
-                return cnt;
             }
-
-            public bool IsLeafValid(int index) => Data[index] != -1;
-            public bool IsInternalValid(int index) => Data[index] != 0;
-
-            public void ClearLeafData(int index) => Data[index] = -1;
-            public void ClearInternalData(int index) => Data[index] = 0;
         }
 
-        // Utility function
-        private static void Swap<T>(ref T a, ref T b) where T : struct { T t = a; a = b; b = t; }
+        private NativeArray<int> m_BranchCount;
+        public int BranchCount { get => m_BranchCount[0]; set => m_BranchCount[0] = value; }
+
+        public void Init()
+        {
+            // Need minimum of 2 empty nodes, to gracefully return from queries on an empty tree
+            Nodes = new NativeArray<BoundingVolumeHierarchy.Node>(2, Allocator.Persistent, NativeArrayOptions.ClearMemory)
+            {
+                [0] = BoundingVolumeHierarchy.Node.Empty,
+                [1] = BoundingVolumeHierarchy.Node.Empty
+            };
+            NodeFilters = new NativeArray<CollisionFilter>(2, Allocator.Persistent, NativeArrayOptions.ClearMemory)
+            {
+                [0] = CollisionFilter.Default,
+                [1] = CollisionFilter.Default
+            };
+            Ranges = new NativeArray<BoundingVolumeHierarchy.Builder.Range>(
+                BoundingVolumeHierarchy.Constants.MaxNumTreeBranches, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+
+            m_BranchCount = new NativeArray<int>(1, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            BodyCount = 0;
+        }
+
+        public object Clone()
+        {
+            var clone = new BVHTree();
+            clone.Nodes = new NativeArray<BoundingVolumeHierarchy.Node>(Nodes.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            clone.Nodes.CopyFrom(Nodes);
+            clone.NodeFilters = new NativeArray<CollisionFilter>(NodeFilters.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            clone.NodeFilters.CopyFrom(NodeFilters);
+            clone.Ranges = new NativeArray<BoundingVolumeHierarchy.Builder.Range>(Ranges.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            clone.Ranges.CopyFrom(Ranges);
+            clone.m_BranchCount = new NativeArray<int>(1, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            clone.BranchCount = BranchCount;
+            clone.BodyCount = BodyCount;
+            return clone;
+        }
+
+        public void Dispose()
+        {
+            if (Nodes.IsCreated)
+            {
+                Nodes.Dispose();
+            }
+
+            if (NodeFilters.IsCreated)
+            {
+                NodeFilters.Dispose();
+            }
+
+            if (Ranges.IsCreated)
+            {
+                Ranges.Dispose();
+            }
+
+            if (m_BranchCount.IsCreated)
+            {
+                m_BranchCount.Dispose();
+            }
+        }
+
+        public JobHandle ScheduleBuildTree(NativeArray<PositionExtend> treeNodes, JobHandle deps = new JobHandle())
+        {
+            NodeCount = treeNodes.Length;
+            NativeArray<BoundingVolumeHierarchy.PointAndIndex> pointAndIndex = new NativeArray<BoundingVolumeHierarchy.PointAndIndex>(BodyCount, Allocator.TempJob);
+            NativeArray<Aabb> aabbs = new NativeArray<Aabb>(BodyCount, Allocator.TempJob);
+            for (int i = 0; i < BodyCount; i++)
+            {
+                float3 center = treeNodes[i].Position;
+                float3 extend = treeNodes[i].Extend;
+                //CollisionFilter filter = treeNodes[i].Filter;
+                pointAndIndex[i] = new BoundingVolumeHierarchy.PointAndIndex() { Index = i, Position = center };
+                aabbs[i] = new Aabb() { Max = center + extend / 2, Min = center - extend / 2 };
+                //NodeFilters[i] = filter;
+                NodeFilters[i] = CollisionFilter.Default;
+            }
+
+            return BoundingVolumeHierarchy.ScheduleBuildJobs(pointAndIndex, aabbs, NodeFilters, 8, deps, NodeCount, Ranges, m_BranchCount);
+        }
 
         #region AABB overlap query
         public struct OverlapAabbInput
@@ -100,7 +140,7 @@ namespace DH2.Algorithm
             where TProcessor : struct, IAabbOverlapLeafProcessor
             where TCollector : struct
         {
-            int* binaryStack = stackalloc int[Constants.BinaryStackSize];
+            int* binaryStack = stackalloc int[BoundingVolumeHierarchy.Constants.BinaryStackSize];
             int* stack = binaryStack;
             *stack++ = 1;
 
@@ -109,7 +149,7 @@ namespace DH2.Algorithm
             do
             {
                 int nodeIndex = *(--stack);
-                Node* node = m_Nodes + nodeIndex;
+                BoundingVolumeHierarchy.Node* node = (BoundingVolumeHierarchy.Node*)Nodes.GetUnsafeReadOnlyPtr() + nodeIndex;
                 bool4 overlap = aabbT.Overlap1Vs4(ref node->Bounds);
                 int4 compressedValues;
                 int compressedCount = math.compress((int*)(&compressedValues), 0, node->Data, overlap);
