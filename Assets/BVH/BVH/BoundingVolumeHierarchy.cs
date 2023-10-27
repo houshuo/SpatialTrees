@@ -6,14 +6,13 @@ using Unity.Jobs;
 
 namespace DH2.Algorithm
 {
-    public struct PositionExtend
+    public struct BoundingVolume
     {
         public float3 Position;
         public float3 Extend;
         //public CollisionFilter Filter;
     }
 
-    // A tree of rigid bodies
     public struct BVHTree : IDisposable, ICloneable
     {
         private NativeArray<BoundingVolumeHierarchy.Node> Nodes; // The nodes of the bounding volume
@@ -27,17 +26,31 @@ namespace DH2.Algorithm
             set { m_BodyCount = value; NodeCount = value + BoundingVolumeHierarchy.Constants.MaxNumTreeBranches; }
         }
 
+        private int m_NodeCount;
         private int NodeCount
         {
-            get => Nodes.Length;
+            get => m_NodeCount;
             set
             {
+                m_NodeCount = value;
                 if (value > Nodes.Length)
                 {
-                    Nodes.Dispose();
-                    Nodes = new NativeArray<BoundingVolumeHierarchy.Node>(value, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-                    NodeFilters.Dispose();
-                    NodeFilters = new NativeArray<CollisionFilter>(value, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+                    if(Nodes.IsCreated) Nodes.Dispose();
+                    Nodes = new NativeArray<BoundingVolumeHierarchy.Node>(value, Allocator.Persistent, NativeArrayOptions.UninitializedMemory)
+                    {
+                        // Always initialize first 2 nodes as empty, to gracefully return from queries on an empty tree
+                        [0] = BoundingVolumeHierarchy.Node.Empty,
+                        [1] = BoundingVolumeHierarchy.Node.Empty
+                    };
+
+                    if (NodeFilters.IsCreated) NodeFilters.Dispose();
+                    NodeFilters = new NativeArray<CollisionFilter>(value, Allocator.Persistent, NativeArrayOptions.UninitializedMemory)
+                    {
+                        // All queries should descend past these special root nodes
+                        [0] = CollisionFilter.Default,
+                        [1] = CollisionFilter.Default
+                    };
+
                     BoundingVolumeHierarchy = new BoundingVolumeHierarchy(Nodes, NodeFilters);
                 }
             }
@@ -48,20 +61,8 @@ namespace DH2.Algorithm
 
         public void Init()
         {
-            // Need minimum of 2 empty nodes, to gracefully return from queries on an empty tree
-            Nodes = new NativeArray<BoundingVolumeHierarchy.Node>(2, Allocator.Persistent, NativeArrayOptions.ClearMemory)
-            {
-                [0] = BoundingVolumeHierarchy.Node.Empty,
-                [1] = BoundingVolumeHierarchy.Node.Empty
-            };
-            NodeFilters = new NativeArray<CollisionFilter>(2, Allocator.Persistent, NativeArrayOptions.ClearMemory)
-            {
-                [0] = CollisionFilter.Default,
-                [1] = CollisionFilter.Default
-            };
-
-            m_BranchCount = new NativeArray<int>(1, Allocator.Persistent, NativeArrayOptions.ClearMemory);
             m_BodyCount = 0;
+            m_BranchCount = new NativeArray<int>(1, Allocator.Persistent, NativeArrayOptions.ClearMemory);
         }
 
         public object Clone()
@@ -95,23 +96,23 @@ namespace DH2.Algorithm
             }
         }
 
-        public JobHandle ScheduleBuildTree(NativeArray<PositionExtend> treeNodes, JobHandle deps = new JobHandle())
+        public JobHandle ScheduleBuildTree(NativeArray<BoundingVolume> treeNodes, JobHandle deps = new JobHandle())
         {
             BodyCount = treeNodes.Length;
             NativeArray<BoundingVolumeHierarchy.PointAndIndex> pointAndIndex = new NativeArray<BoundingVolumeHierarchy.PointAndIndex>(BodyCount, Allocator.TempJob);
             NativeArray<Aabb> aabbs = new NativeArray<Aabb>(BodyCount, Allocator.TempJob);
+            NativeArray<CollisionFilter> filters = new NativeArray<CollisionFilter>(BodyCount, Allocator.TempJob);
             for (int i = 0; i < BodyCount; i++)
             {
                 float3 center = treeNodes[i].Position;
                 float3 extend = treeNodes[i].Extend;
-                //CollisionFilter filter = treeNodes[i].Filter;
                 pointAndIndex[i] = new BoundingVolumeHierarchy.PointAndIndex() { Index = i, Position = center };
                 aabbs[i] = new Aabb() { Max = center + extend / 2, Min = center - extend / 2 };
-                //NodeFilters[i] = filter;
-                NodeFilters[i] = CollisionFilter.Default;
+                //NodeFilters[i] = treeNodes[i].Filter;
+                filters[i] = CollisionFilter.Default;
             }
             
-            return BoundingVolumeHierarchy.ScheduleBuildJobs(pointAndIndex, aabbs, NodeFilters, 8, deps, NodeCount, m_BranchCount);
+            return BoundingVolumeHierarchy.ScheduleBuildJobs(pointAndIndex, aabbs, filters, 8, deps, NodeCount, m_BranchCount);
         }
 
         #region AABB overlap query

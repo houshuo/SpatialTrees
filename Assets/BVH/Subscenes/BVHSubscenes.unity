@@ -132,6 +132,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1243165030}
+  - component: {fileID: 1243165031}
   m_Layer: 0
   m_Name: Simulation
   m_TagString: Untagged
@@ -154,6 +155,22 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1243165031
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1243165029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad1060a9ac20af64e89330c1a617e6d3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  unitCount: 20
+  unitPrefab: {fileID: 1425423955843570488, guid: e2cbc64ad63f35e439a128e262e1d8f5, type: 3}
+  targetCount: 1000
+  targetPrefab: {fileID: 3903282987089014872, guid: 1f1e19d91e4ba9f47a6410b5982b28e7, type: 3}
 --- !u!1 &1270550339
 GameObject:
   m_ObjectHideFlags: 0

@@ -528,12 +528,12 @@ namespace DH2.Algorithm
             {
                 Aabbs = aabbs,
                 Nodes = m_Nodes,
-                NodeFilters = m_NodeFilters,
                 LeafFilters = bodyFilters,
-                NumNodes = numNodes,
+                NodeFilters = m_NodeFilters,
                 BranchNodeOffsets = branchNodeOffsets,
                 BranchCount = numBranches,
-                OldBranchCount = oldNumBranches,
+                //NumNodes = numNodes,
+                //OldBranchCount = oldNumBranches,
                 //ShouldDoWork = shouldDoWork
             }.Schedule(handle);
 
@@ -895,16 +895,16 @@ namespace DH2.Algorithm
         internal unsafe struct FinalizeTreeJob : IJob
         {
             [ReadOnly] [DeallocateOnJobCompletion] public NativeArray<Aabb> Aabbs;
+            [ReadOnly] [DeallocateOnJobCompletion] public NativeArray<CollisionFilter> LeafFilters;
             [ReadOnly] [DeallocateOnJobCompletion] public NativeArray<int> BranchNodeOffsets;
-            [ReadOnly] public NativeArray<CollisionFilter> LeafFilters;
             //[ReadOnly] public NativeArray<int> ShouldDoWork;
             [NativeDisableUnsafePtrRestriction]
             public Node* Nodes;
             [NativeDisableUnsafePtrRestriction]
             public CollisionFilter* NodeFilters;
-            public int NumNodes;
-            public int OldBranchCount;
             public NativeArray<int> BranchCount;
+            //public int NodesCount;
+            //public int OldBranchCount;
 
             public void Execute()
             {
@@ -917,7 +917,7 @@ namespace DH2.Algorithm
 
                 int minBranchNodeIndex = BranchNodeOffsets[0] - 1;
                 int branchCount = BranchCount[0];
-                for (int i = 1; i < BranchCount[0]; i++)
+                for (int i = 1; i < branchCount; i++)
                 {
                     minBranchNodeIndex = math.min(BranchNodeOffsets[i] - 1, minBranchNodeIndex);
                 }
