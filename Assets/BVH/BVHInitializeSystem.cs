@@ -35,8 +35,13 @@ public partial struct BVHInitializationSystem : ISystem
             position.xz = random.NextFloat2() * 200 - 100;
             state.EntityManager.SetComponentData(units[i],
                 new LocalTransform { Position = position, Scale = 1 });
+            
             state.EntityManager.SetComponentData(units[i],
                 new Movement { Value = random.NextFloat2Direction() });
+
+            state.EntityManager.AddComponent<PostTransformMatrix>(units[i]);
+            state.EntityManager.SetComponentData(units[i],
+                new PostTransformMatrix { Value = float4x4.Scale(random.NextFloat() * 5, 1, random.NextFloat() * 5) });
         }
     }
 }
