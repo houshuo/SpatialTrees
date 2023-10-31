@@ -122,15 +122,15 @@ namespace DH2.Algorithm
             public CollisionFilter Filter;
         }
 
-        public interface IAabbOverlapLeafProcessor
+        public interface IAabbOverlapLeafProcessor<T>
         {
             // Called when the query overlaps a leaf node of the bounding volume hierarchy
-            void AabbLeaf<T>(OverlapAabbInput input, int leafData, ref T collector) where T : struct;
+            void AabbLeaf(OverlapAabbInput input, int leafData, ref T collector);
         }
 
         public unsafe void AabbOverlap<TProcessor, TCollector>(OverlapAabbInput input, ref TProcessor processor, ref TCollector collector)
-            where TProcessor : struct, IAabbOverlapLeafProcessor
-            where TCollector : struct
+            where TProcessor : struct, IAabbOverlapLeafProcessor<TCollector>
+            // where TCollector : struct
         {
             int* binaryStack = stackalloc int[BoundingVolumeHierarchy.Constants.BinaryStackSize];
             int* stack = binaryStack;

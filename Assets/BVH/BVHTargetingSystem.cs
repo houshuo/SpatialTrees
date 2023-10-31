@@ -10,6 +10,20 @@ using Unity.Transforms;
 using UnityEngine;
 using DH2.Algorithm;
 
+struct AabbOverlapLeafProcessor : BVHTree.IAabbOverlapLeafProcessor<NativeArray<Entity>>
+{
+    public EntityCommandBuffer.ParallelWriter ECB;
+    public Entity QueryEntity;
+    public int frameCount;
+    public void AabbLeaf(BVHTree.OverlapAabbInput input, int leafData, ref NativeArray<Entity> allTargetEntities)
+    {
+        ECB.SetComponent(QueryEntity.Index, allTargetEntities[leafData], new Target(){Value = QueryEntity});
+        
+        // Debug.Log($"{frameCount}######################query: {QueryEntity} target: {allTargetEntities[leafData]}");
+    }
+}
+
+[UpdateAfter(typeof(LocalToWorldSystem))]
 public partial struct BVHTargetingSystem : ISystem
 {
     BVHTree tree;
@@ -23,19 +37,27 @@ public partial struct BVHTargetingSystem : ISystem
     }
 
     public void OnDestroy(ref SystemState state)
-    { 
+    {
+        tree.Dispose();
     }
 
     public void OnUpdate(ref SystemState state)
     {
-        var targetQuery = SystemAPI.QueryBuilder().WithAll<PostTransformMatrix>().WithNone<Target, BVHSettings>().Build();
-        var bvhQuery = SystemAPI.QueryBuilder().WithAll<PostTransformMatrix, Target>().Build();
+        //Clear results
+        foreach (var target in SystemAPI.Query<RefRW<Target>>())
+        {
+            target.ValueRW.Value = new Entity();
+        }
+        
+        //Query Entities
+        var bvhQuery = SystemAPI.QueryBuilder().WithAll<PostTransformMatrix>().WithNone<Target, BVHSettings>().Build();
+        //Target Entities
+        var targetQuery = SystemAPI.QueryBuilder().WithAll<LocalToWorld, Target>().Build();
+        var allTargetEntities = targetQuery.ToEntityArray(state.WorldUpdateAllocator);
+        var targetPostMatrices = targetQuery.ToComponentDataArray<LocalToWorld>(state.WorldUpdateAllocator);
 
-        var targetEntities = targetQuery.ToEntityArray(state.WorldUpdateAllocator);
-        var targetPostMatrices = targetQuery.ToComponentDataArray<PostTransformMatrix>(state.WorldUpdateAllocator);
-
-        NativeArray<BoundingVolume> boundingVolumes = new NativeArray<BoundingVolume>(targetEntities.Length, Allocator.Temp);
-        // init KD tree
+        NativeArray<BoundingVolume> boundingVolumes = new NativeArray<BoundingVolume>(targetPostMatrices.Length, Allocator.Temp);
+        // init BVH
         for (int i = 0; i < targetPostMatrices.Length; i += 1)
         {
             float4x4 m = targetPostMatrices[i].Value;
@@ -50,48 +72,84 @@ public partial struct BVHTargetingSystem : ISystem
                 )
             };
         }
-
         state.Dependency = tree.ScheduleBuildTree(boundingVolumes, state.Dependency);
         boundingVolumes.Dispose();
-        //var queryBVHTree = new QueryBVHTree
-        //{
-        //    Tree = tree,
-        //    TargetEntities = targetEntities,
-        //    TargetHandle = SystemAPI.GetComponentTypeHandle<Target>(),
-        //    LocalTransformHandle = SystemAPI.GetComponentTypeHandle<LocalTransform>(true)
-        //};
-        //state.Dependency = queryBVHTree.ScheduleParallel(kdQuery, state.Dependency);
-        //state.Dependency.Complete();
-        //tree.Dispose();
-
+        
+        EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.TempJob);
+        EntityCommandBuffer.ParallelWriter parallelWriter = ecb.AsParallelWriter();
+        //Job Implement
+        var queryBVHTree = new QueryBVHTree
+        {
+            frameCount = Time.frameCount,
+            Tree = tree,
+            ECB = parallelWriter,
+            AllTargetEntities = allTargetEntities,
+            EntityTypeHandle = SystemAPI.GetEntityTypeHandle(),
+            LocalToWorldHandle = SystemAPI.GetComponentTypeHandle<LocalToWorld>(true)
+        };
+        state.Dependency = queryBVHTree.ScheduleParallel(bvhQuery, state.Dependency);
         state.Dependency.Complete();
+        
+        //Main Thread Implement
+        // foreach (var (localToWorld, queryEntity) in SystemAPI.Query<RefRO<LocalToWorld>>()
+        //              .WithNone<Target, BVHSettings>()
+        //              .WithEntityAccess())
+        // {
+        //     
+        //     AabbOverlapLeafProcessor processor = new AabbOverlapLeafProcessor() { ECB = parallelWriter, QueryEntity = queryEntity, frameCount = Time.frameCount};
+        //     var m = localToWorld.ValueRO.Value;
+        //     float3 center = new float3(m.c3.x, m.c3.y, m.c3.z);
+        //     float3 extend = new float3(
+        //         math.length(new float3(m.c0.x, m.c1.x, m.c2.x)),
+        //         math.length(new float3(m.c0.y, m.c1.y, m.c2.y)),
+        //         math.length(new float3(m.c0.z, m.c1.z, m.c2.z))
+        //     );
+        //     
+        //     tree.AabbOverlap(
+        //         new BVHTree.OverlapAabbInput { Aabb = new Aabb { Max = center + extend * 0.5f, Min = center - extend * 0.5f}, Filter = CollisionFilter.Default },
+        //         ref processor, 
+        //         ref allTargetEntities
+        //     );
+        // };
+        
+        ecb.Playback(state.EntityManager);
+        ecb.Dispose();
     }
 }
 
-//[BurstCompile]
-//public struct QueryBVHTree : IJobChunk
-//{
-//    [ReadOnly] public NativeArray<Entity> TargetEntities;
-//    public BVHTree Tree;
-
-//    public ComponentTypeHandle<Target> TargetHandle;
-//    [ReadOnly] public ComponentTypeHandle<LocalTransform> LocalTransformHandle;
-
-//    public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask,
-//        in v128 chunkEnabledMask)
-//    {
-//        var targets = chunk.GetNativeArray(ref TargetHandle);
-//        var transforms = chunk.GetNativeArray(ref LocalTransformHandle);
-
-//        NativePriorityHeap<KDTree.Neighbour> Neighbours = new NativePriorityHeap<KDTree.Neighbour>(1, Allocator.Temp);
-//        for (int i = 0; i < chunk.Count; i++)
-//        {
-//            Neighbours.Clear();
-//            Tree.GetEntriesInRange(-1, transforms[i].Position, float.MaxValue,
-//                ref Neighbours);
-//            var nearest = Neighbours.Peek().index;
-//            targets[i] = new Target { Value = TargetEntities[nearest] };
-//        }
-//        Neighbours.Dispose();
-//    }
-//}
+[BurstCompile]
+public struct QueryBVHTree : IJobChunk
+{
+    [NativeDisableParallelForRestriction] public NativeArray<Entity> AllTargetEntities;
+    public EntityCommandBuffer.ParallelWriter ECB;
+    public BVHTree Tree;
+    [ReadOnly] public EntityTypeHandle EntityTypeHandle;
+    [ReadOnly] public ComponentTypeHandle<LocalToWorld> LocalToWorldHandle;
+    public int frameCount;
+    
+    public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask,
+        in v128 chunkEnabledMask)
+    {
+        var queryEntities = chunk.GetNativeArray(EntityTypeHandle);
+        var localToWorlds = chunk.GetNativeArray(ref LocalToWorldHandle);
+        
+        for (int i = 0; i < chunk.Count; i++)
+        {
+            Entity queryEntity = queryEntities[i];
+            AabbOverlapLeafProcessor processor = new AabbOverlapLeafProcessor() { ECB = ECB, QueryEntity = queryEntity, frameCount = frameCount};
+            float4x4 m = localToWorlds[i].Value;
+            float3 center = new float3(m.c3.x, m.c3.y, m.c3.z);
+            float3 extend = new float3(
+                math.length(new float3(m.c0.x, m.c1.x, m.c2.x)),
+                math.length(new float3(m.c0.y, m.c1.y, m.c2.y)),
+                math.length(new float3(m.c0.z, m.c1.z, m.c2.z))
+            );
+            Tree.AabbOverlap(
+                new BVHTree.OverlapAabbInput { Aabb = new Aabb { Max = center + extend * 0.5f, Min = center - extend * 0.5f}, Filter = CollisionFilter.Default },
+                ref processor, 
+                ref AllTargetEntities
+            );
+        }
+        
+    }
+}

@@ -14,8 +14,8 @@ namespace DH2.Algorithm
     // A 4-way bounding volume hierarchy
     public partial struct BoundingVolumeHierarchy
     {
-        private readonly unsafe Node* m_Nodes;
-        private readonly unsafe CollisionFilter* m_NodeFilters;
+        [NativeDisableUnsafePtrRestriction] private readonly unsafe Node* m_Nodes;
+        [NativeDisableUnsafePtrRestriction] private readonly unsafe CollisionFilter* m_NodeFilters;
 
         public unsafe Aabb Domain => m_Nodes[1].Bounds.GetCompoundAabb();
 
@@ -490,12 +490,11 @@ namespace DH2.Algorithm
             NativeArray<PointAndIndex> points, NativeArray<Aabb> aabbs, NativeArray<CollisionFilter> bodyFilters, /*NativeArray<int> shouldDoWork,*/
             int numThreadsHint, JobHandle inputDeps, int numNodes, NativeArray<int> numBranches)
         {
+            //int oldNumBranches = numBranches[0];
             JobHandle handle = inputDeps;
 
             var branchNodeOffsets = new NativeArray<int>(Constants.MaxNumTreeBranches, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            int oldNumBranches = numBranches[0];
-
-            NativeArray<Builder.Range> ranges = new NativeArray<Builder.Range>(Constants.MaxNumTreeBranches, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            var ranges = new NativeArray<Builder.Range>(Constants.MaxNumTreeBranches, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
             // Build initial branches
             handle = new BuildFirstNLevelsJob

@@ -167,10 +167,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ad1060a9ac20af64e89330c1a617e6d3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  unitCount: 20
-  unitPrefab: {fileID: 1425423955843570488, guid: e2cbc64ad63f35e439a128e262e1d8f5, type: 3}
-  targetCount: 1000
-  targetPrefab: {fileID: 3903282987089014872, guid: 1f1e19d91e4ba9f47a6410b5982b28e7, type: 3}
+  unitCount: 1000
+  unitPrefab: {fileID: 1425423955843570488, guid: bb67776bb6f841347b9244dcdb482958, type: 3}
+  targetCount: 10000
+  targetPrefab: {fileID: 3903282987089014872, guid: 2de578628f513944ab6e1bd84d742a41, type: 3}
 --- !u!1 &1270550339
 GameObject:
   m_ObjectHideFlags: 0
