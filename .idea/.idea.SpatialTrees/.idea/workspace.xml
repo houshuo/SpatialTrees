@@ -5,44 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cdf67311-1fa1-40b2-9e0d-e8e0f9ab1395" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Assets/BVH/Target.mat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/BVH/Target.mat.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/BVH/Target.prefab" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/BVH/Target.prefab.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/BVH/Unit.mat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/BVH/Unit.mat.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/BVH/Unit.prefab" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/BVH/Unit.prefab.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/ClosestTarget/Target.mat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/ClosestTarget/Target.mat.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/ClosestTarget/Target.prefab" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/ClosestTarget/Target.prefab.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/ClosestTarget/Unit.mat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/ClosestTarget/Unit.mat.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/ClosestTarget/Unit.prefab" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Assets/ClosestTarget/Unit.prefab.meta" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ProjectSettings/BurstAotSettings_Android.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ProjectSettings/BurstAotSettings_StandaloneWindows.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ProjectSettings/CommonBurstAotSettings.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.SpatialTrees/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.SpatialTrees/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/BVH/BVH/BoundingVolumeHierarchy.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/BVH/BVH/BoundingVolumeHierarchy.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/BVH/BVH/BoundingVolumeHierarchyBuilder.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/BVH/BVH/BoundingVolumeHierarchyBuilder.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/BVH/BVHTargetingSystem.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/BVH/BVHTargetingSystem.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/BVH/Subscenes/BVHSubscenes.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/BVH/Subscenes/BVHSubscenes.unity" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/ClosestTarget/DebugLinesSystem.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/ClosestTarget/DebugLinesSystem.cs.meta" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Common/Target.mat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Common/Target.mat.meta" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Common/Target.prefab" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Common/Target.prefab.meta" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Common/Unit.mat" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Common/Unit.mat.meta" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Common/Unit.prefab" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Assets/Common/Unit.prefab.meta" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Packages/manifest.json" beforeDir="false" afterPath="$PROJECT_DIR$/Packages/manifest.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Packages/packages-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/Packages/packages-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ProjectSettings/EntitiesClientSettings.asset" beforeDir="false" afterPath="$PROJECT_DIR$/ProjectSettings/EntitiesClientSettings.asset" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ProjectSettings/ProjectVersion.txt" beforeDir="false" afterPath="$PROJECT_DIR$/ProjectSettings/ProjectVersion.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Assets/ClosestTarget/Subscenes/ClosestTargetSubscene.unity" beforeDir="false" afterPath="$PROJECT_DIR$/Assets/ClosestTarget/Subscenes/ClosestTargetSubscene.unity" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -135,7 +99,7 @@
       <workItem from="1698651311156" duration="40000" />
       <workItem from="1698651365409" duration="1825000" />
       <workItem from="1698653578306" duration="11772000" />
-      <workItem from="1698719720719" duration="1269000" />
+      <workItem from="1698719720719" duration="1818000" />
     </task>
     <servers />
   </component>
